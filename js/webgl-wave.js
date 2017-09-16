@@ -12,7 +12,7 @@ if (!Detector.webgl) Detector.addGetWebGLMessage();
 // simulation resolution
 const N = 60;
 // simulation grid size (in xz plane)
-const W = 10000;
+const W = 100;
 const H = W;
 // depth of the water -- make it deep!
 const D = 100;
@@ -39,7 +39,7 @@ const MAX_ITERATED_DT = 100;
 // also affects new clicks.
 
 // amplitude of 'clicked' normal distributions
-const MAX_Y = 200;
+const MAX_Y = 50;
 // width of the normal distribution.
 const SIGMA = 0.01;
 
@@ -50,13 +50,15 @@ var container, stats;
 var camera, scene, renderer, light1, effect, clock, controls;
 
 var mesh, boxmesh;
+var geometry; // for the plane
+var cubeGeometry; // for the box of water
 
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 
 var obj_pos = new THREE.Vector3(0, 0, 30);
-var camera_pos = new THREE.Vector3(0, 0, 0);
-var camera_fov = 90
+var camera_pos = new THREE.Vector3(100, 150, 200);
+var camera_fov = 90;
 
 var light_dist = 23.5;
 var light_radius = 0.3;
@@ -72,10 +74,10 @@ animate();
 // Set up the initial conditions for <geometry>
 // geometry should be a mesh grid.
 // uy is velocity in y direction, ay is acceleration in y direction.
-var initGeometry = function ( geometry ){
+function initGeometry( geom ){
     var result = [];
-    for (var i = 0; i < geometry.vertices.length; i++) {
-        var vertex = geometry.vertices[i];
+    for (var i = 0; i < geom.vertices.length; i++) {
+        var vertex = geom.vertices[i];
         vertex.y = MAX_Y * Math.exp(-SIGMA * vertex.x * vertex.x) * Math.exp(-SIGMA * vertex.z * vertex.z);
         vertex.uy = 0;
         result.push(vertex.ay = 0);
@@ -123,20 +125,30 @@ function init() {
     /** SHAPE SETUP **/
 
     // start with a flat plane which we'll deform accordingly
-    var geometry = new THREE.PlaneGeometry(W, H, N, N);
+    geometry = new THREE.PlaneGeometry(W, H, N, N);
     // make it so that our wave function is in the form y = f(x, z, t)
-    //var matrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
-    //geometry.applyMatrix(matrix);
-    //initGeometry(geometry);
+    var matrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+    geometry.applyMatrix(matrix);
+    initGeometry( geometry );
 
     var materials = [
-        new THREE.MeshPhongMaterial({color: 0xff99ff}),
+        new THREE.MeshPhongMaterial({
+            ambient: 0xffffff,
+            color: 0x0099ff,
+            shininess: 30,
+            shading: THREE.SmoothShading,
+            metal: false,
+            side: THREE.DoubleSide
+        }),
         new THREE.MeshBasicMaterial({visible: false})
     ];
 
     mesh = new THREE.Mesh(geometry, materials[0]);
     mesh.position = obj_pos;
-    // mesh.scale.set(0.05, 0.05, 0.05);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.material.vertexColors = THREE.FaceColors;
+    mesh.scale.set(1,1,1);
     /**
     var cubeGeometry = new THREE.BoxGeometry(W, D, H);
     for (face in cubeGeometry.faces) { face.materialIndex = 0; }
@@ -151,6 +163,11 @@ function init() {
     noSleep.enable();
     /** END SHAPE SETUP **/
 
+    //var light = new THREE.AmbientLight( 0x404040 ); // soft white light
+    //scene.add( light );
+    var light = new THREE.DirectionalLight(0xffffff);
+    light.position.set(1, 1, 1);
+    scene.add(light);
     light1 = new THREE.PointLight(0xffffff, 0.898, 15.145);
     scene.add(light1);
 
@@ -199,20 +216,83 @@ function update() {
   clock.getDelta();
 }
 
+// this should be replaced by integrate() from main.js.
+function idx(x, z){
+    return (x + ((N + 1) * z));
+};
+
+// num solve across a unit time interval dt
+// dt should be given three js's clock
+function euintegrate( dt ){
+    var i; var d2x; var d2z;
+    var v = geometry.vertices;
+    
+    //document.write(geometry);
+
+    for (var z=1; z <= N; z++) {
+        for (var x=1; x <= N; x++) {
+            i = idx(x, z)
+            // find neighbouring points in grid
+            iPrevX = idx(x - 1, z);
+            iNextX = idx(x + 1, z);
+            iPrevZ = idx(x, z - 1);
+            iNextZ = idx(x, z + 1);
+
+            d2x = (v[iNextX].y - 2 * v[i].y + v[iPrevX].y) / DELTA_X2;
+            d2z = (v[iNextZ].y - 2 * v[i].y + v[iPrevZ].y) / DELTA_Z2;
+
+            // wave eqn
+            v[i].ay = C2 * (d2x + d2z);
+
+            // introduce damping
+            v[i].ay += -DAMPING * v[i].uy;
+
+            // use Euler integration to find the new velocity w.r.t. time
+            // and the new vertical position
+            v[i].uy += dt * v[i].ay;
+            v[i].newY = v[i].y + dt * v[i].uy;
+        };
+    };
+
+    // loop again to update the y values .. but only after all computations are completed.
+    for (z=1; z <= N; z++) {
+        for (x=1; x <= N; x++) {
+            i = idx(x, z);
+            v[i].y = v[i].newY;
+        };
+    };
+
+    geometry.verticesNeedUpdate = true;
+    geometry.computeFaceNormals();
+    geometry.computeVertexNormals();
+    geometry.normalsNeedUpdate = true;
+};
+
 
 function render() {
+    // move the spotlight.
     light1.position.x = Math.sin(clock.elapsedTime * 1) * light_plane_width_half * light_radius;
     light1.position.y = Math.cos(clock.elapsedTime * 1) * light_plane_height_half * light_radius;
     light1.position.z = light_dist;
 
-    var targetX = light1.position.x * .07 + Math.PI;
-    var targetY = light1.position.y * -.07 ;
+    // TODO: here is where to integrate.
+    var dt = clock.getDelta();
+    dt = dt * SIM_SPEED; // speed up the simulation by SIM_SPEED
 
-    if (mesh) {
-        mesh.rotation.y += 0.05 * (targetX - mesh.rotation.y);
-        mesh.rotation.x += 0.05 * (targetY - mesh.rotation.x);
-    }
+    if (dt > MAX_ITERATED_DT){
+        dt = MAX_ITERATED_DT;
+    };
 
+    while (dt > 0){
+        if (dt > MAX_DT){
+            euintegrate(MAX_DT); // just this time length
+        } else{
+            euintegrate(dt);
+        };
+        dt = dt - MAX_DT;
+    };
+
+    // And now we render it all.
     effect.render(scene, camera);
 }
 
