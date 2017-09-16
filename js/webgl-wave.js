@@ -9,10 +9,10 @@ merging iterative wave and camera setup.
 if (!Detector.webgl) Detector.addGetWebGLMessage();
 
 /** SIMULATION - SPECIFIC CONSTS **/
-/ simulation resolution
+// simulation resolution
 const N = 60;
 // simulation grid size (in xz plane)
-const W = 360;
+const W = 10000;
 const H = W;
 // depth of the water -- make it deep!
 const D = 100;
@@ -47,7 +47,9 @@ const SIGMA = 0.01;
 *** and rendering with three.js **/
 var noSleep;
 var container, stats;
-var camera, scene, renderer, light1, mesh, material, effect, clock, controls;
+var camera, scene, renderer, light1, effect, clock, controls;
+
+var mesh, boxmesh;
 
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
@@ -65,11 +67,28 @@ var material_specular = new THREE.Color(5,5,5);
 init();
 animate();
 
+/******************************************************* REAL CODE **********************************************/
+
+// Set up the initial conditions for <geometry>
+// geometry should be a mesh grid.
+// uy is velocity in y direction, ay is acceleration in y direction.
+var initGeometry = function ( geometry ){
+    var result = [];
+    for (var i = 0; i < geometry.vertices.length; i++) {
+        var vertex = geometry.vertices[i];
+        vertex.y = MAX_Y * Math.exp(-SIGMA * vertex.x * vertex.x) * Math.exp(-SIGMA * vertex.z * vertex.z);
+        vertex.uy = 0;
+        result.push(vertex.ay = 0);
+        }
+    return result;
+    };
+
+
 // Set up the WebGL interface.
-// 
 function init() {
     noSleep = new NoSleep();
 
+    /** CAMERA SETUP **/
     container = document.createElement('div');
     container.innerHTML = '<h3 style="color: white;">Loading mesh.. </h3>';
     document.body.appendChild(container);
@@ -101,58 +120,36 @@ function init() {
     }
     window.addEventListener('deviceorientation', setOrientationControls, true);
 
+    /** SHAPE SETUP **/
 
     // start with a flat plane which we'll deform accordingly
-    geometry = new THREE.PlaneGeometry(W, H, N, N);
+    var geometry = new THREE.PlaneGeometry(W, H, N, N);
     // make it so that our wave function is in the form y = f(x, z, t)
-    const matrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
-    geometry.applyMatrix(matrix);
+    //var matrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+    //geometry.applyMatrix(matrix);
+    //initGeometry(geometry);
 
-    initGeometry();
-
-    const materials = [
-        new THREE.MeshPhongMaterial({color: 0x0099ff}),
+    var materials = [
+        new THREE.MeshPhongMaterial({color: 0xff99ff}),
         new THREE.MeshBasicMaterial({visible: false})
     ];
 
-    mesh = new THREE.Mesh(geometry, materials[0])
-
-
-
-    /** var loader = new THREE.PLYLoader();
-    loader.addEventListener('load', function (event) {
-	    container.innerHTML = '';
-        
-        var geometry = event.content;
-        geometry.computeFaceNormals();
-
-        material = new THREE.MeshPhongMaterial({
-            ambient: 0xAAAAAA,
-            color: 0xFFFFFF,
-            shininess: 15,
-            shading: THREE.SmoothShading,
-            metal: false,
-            side: THREE.DoubleSide
-        });
-        material.specular = material_specular;
-        mesh = new THREE.Mesh(geometry, material);
-
-        mesh.position = obj_pos;
-        mesh.rotation.set(0, Math.PI, +Math.PI / 2);
-        mesh.scale.set(0.1, 0.1, 0.1);
-
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.material.vertexColors = THREE.FaceColors;
-
-        scene.add(mesh);
-      
-        container.appendChild(renderer.domElement);
-
-        noSleep.enable();
-    });
-    loader.load('models/me_small2.ply');
+    mesh = new THREE.Mesh(geometry, materials[0]);
+    mesh.position = obj_pos;
+    // mesh.scale.set(0.05, 0.05, 0.05);
+    /**
+    var cubeGeometry = new THREE.BoxGeometry(W, D, H);
+    for (face in cubeGeometry.faces) { face.materialIndex = 0; }
+    cubeGeometry.faces[2].materialIndex = 1;
+    var cubeMesh = new THREE.Mesh(cubeGeometry, new THREE.MeshFaceMaterial(materials));
+    cubeMesh.position.set(0, -D / 2, 0);
     **/
+
+    /** FINAL ADDITIONS **/
+    scene.add(mesh);
+    // scene.add(cubeMesh);
+    noSleep.enable();
+    /** END SHAPE SETUP **/
 
     light1 = new THREE.PointLight(0xffffff, 0.898, 15.145);
     scene.add(light1);
@@ -168,7 +165,7 @@ function init() {
 
     renderer.shadowMapEnabled = true;
     renderer.shadowMapCullFace = THREE.CullFaceBack;
-
+    container.appendChild(renderer.domElement);
     effect = new THREE.StereoEffect(renderer);
 
     // EVENTS
