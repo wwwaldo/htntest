@@ -1,10 +1,50 @@
 /**
-forked from @dyoniziz and @---
+forked from @dyoniziz and @jkammerl.
+@author: caroline-lin
+last modified: sept 16 2017
+merging iterative wave and camera setup.
 
 **/
-
+// Check if the browser supports WebGL
 if (!Detector.webgl) Detector.addGetWebGLMessage();
 
+/** SIMULATION - SPECIFIC CONSTS **/
+/ simulation resolution
+const N = 60;
+// simulation grid size (in xz plane)
+const W = 360;
+const H = W;
+// depth of the water -- make it deep!
+const D = 100;
+// wave propagation speed (relationship between time and space)
+const C = 0.04;
+const C2 = C * C;
+// damping coefficient
+const DAMPING = 0.001;
+const SIM_SPEED = 100;
+
+// precompute some deltas for our finite differences
+// because our step size in space is completely constant.
+const DELTA_X = W / N;
+const DELTA_X2 = DELTA_X * DELTA_X;
+const DELTA_Z = H / N;
+const DELTA_Z2 = DELTA_Z * DELTA_Z;
+
+// should be the 'usual' iter of time to run
+const MAX_DT = 20;
+// only simulate 100ms if last iter elapsed more than 100ms.
+const MAX_ITERATED_DT = 100;
+
+// some constants for the initial state of the world
+// also affects new clicks.
+
+// amplitude of 'clicked' normal distributions
+const MAX_Y = 200;
+// width of the normal distribution.
+const SIGMA = 0.01;
+
+/** Constants for google cardboard
+*** and rendering with three.js **/
 var noSleep;
 var container, stats;
 var camera, scene, renderer, light1, mesh, material, effect, clock, controls;
@@ -20,12 +60,13 @@ var light_dist = 23.5;
 var light_radius = 0.3;
 
 var light_plane_height_half, light_plane_width_half;
-
 var material_specular = new THREE.Color(5,5,5);
 
 init();
 animate();
 
+// Set up the WebGL interface.
+// 
 function init() {
     noSleep = new NoSleep();
 
@@ -45,7 +86,7 @@ function init() {
 
     scene = new THREE.Scene();
 
-    clock = new THREE.Clock(true);
+    clock = new THREE.Clock(true); // alternative to Date.now
 
     function setOrientationControls(e) {
         if (!e.alpha) {
@@ -60,7 +101,25 @@ function init() {
     }
     window.addEventListener('deviceorientation', setOrientationControls, true);
 
-    var loader = new THREE.PLYLoader();
+
+    // start with a flat plane which we'll deform accordingly
+    geometry = new THREE.PlaneGeometry(W, H, N, N);
+    // make it so that our wave function is in the form y = f(x, z, t)
+    const matrix = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+    geometry.applyMatrix(matrix);
+
+    initGeometry();
+
+    const materials = [
+        new THREE.MeshPhongMaterial({color: 0x0099ff}),
+        new THREE.MeshBasicMaterial({visible: false})
+    ];
+
+    mesh = new THREE.Mesh(geometry, materials[0])
+
+
+
+    /** var loader = new THREE.PLYLoader();
     loader.addEventListener('load', function (event) {
 	    container.innerHTML = '';
         
@@ -93,6 +152,7 @@ function init() {
         noSleep.enable();
     });
     loader.load('models/me_small2.ply');
+    **/
 
     light1 = new THREE.PointLight(0xffffff, 0.898, 15.145);
     scene.add(light1);
