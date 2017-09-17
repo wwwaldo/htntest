@@ -110,7 +110,12 @@ const init = function() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-        return controls.target.set(0, 0, 0);
+        // effect.setSize(window.innerWidth, window.innerHeight);
+        // todo: implement effect
+
+        if (controls) {
+            controls.update();
+        } // if statement is important to make sure compile happens.
     };
 
     updateViewport();
