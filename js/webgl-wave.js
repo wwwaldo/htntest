@@ -67,6 +67,7 @@ var light_plane_height_half, light_plane_width_half;
 var material_specular = new THREE.Color(5,5,5);
 
 init();
+var now = Date.now();
 animate();
 
 /******************************************************* REAL CODE **********************************************/
@@ -203,7 +204,8 @@ function onWindowResize() {
 }
 
 function animate() {
-    var dt = clock.getDelta();
+    var dt = Date.now() - now;
+    // var dt = clock.getDelta(); <-- this breaks the code sob sob, tear tear
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
 
@@ -213,7 +215,22 @@ function animate() {
         controls.update();
     }
 
-    render();
+    dt = dt * SIM_SPEED; // speed up the simulation by SIM_SPEED
+
+    if (dt > MAX_ITERATED_DT){
+        dt = MAX_ITERATED_DT;
+    };
+
+    while (dt > 0){
+        if (dt > MAX_DT){
+            euintegrate(MAX_DT); // just this time length
+        } else{
+            euintegrate(dt);
+        }
+        dt = dt - MAX_DT;
+    };
+
+    now = Date.now();
 }
 
 // this should be replaced by integrate() from main.js.
@@ -267,31 +284,6 @@ function euintegrate( dt ){
     geometry.computeVertexNormals();
     geometry.normalsNeedUpdate = true;
 };
-
-
-function render() {
-    // move the spotlight.
-    light1.position.x = Math.sin(clock.elapsedTime * 1) * light_plane_width_half * light_radius;
-    light1.position.y = Math.cos(clock.elapsedTime * 1) * light_plane_height_half * light_radius;
-    light1.position.z = light_dist;
-
-    // TODO: here is where to integrate.
-    var dt = clock.getDelta();
-    dt = dt * SIM_SPEED; // speed up the simulation by SIM_SPEED
-
-    if (dt > MAX_ITERATED_DT){
-        dt = MAX_ITERATED_DT;
-    };
-
-    while (dt > 0){
-        if (dt > MAX_DT){
-            euintegrate(MAX_DT); // just this time length
-        } else{
-            euintegrate(dt);
-        };
-        dt = dt - MAX_DT;
-    };
-}
 
 function fullscreen() {
   if (container.requestFullscreen) {
