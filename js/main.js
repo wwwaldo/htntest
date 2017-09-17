@@ -63,11 +63,10 @@ const init = function() {
         if (!e.alpha) {
           return;
         }
-        if (controls == null) {
-            controls = new THREE.DeviceOrientationControls(camera, true);
-            controls.connect();
-            controls.update();
-        }
+        controls = new THREE.DeviceOrientationControls(camera, true);
+        controls.connect();
+        controls.update();
+    
         window.removeEventListener('deviceorientation', setOrientationControls.bind(this));
     }
     window.addEventListener('deviceorientation', setOrientationControls, true);
@@ -102,7 +101,7 @@ const init = function() {
     scene.add(mesh);
     scene.add(cubeMesh);
 
-    // controls = new THREE.TrackballControls(camera);
+    /** controls = new THREE.TrackballControls(camera); **/
 
     projector = new THREE.Projector();
 
