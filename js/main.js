@@ -14,6 +14,7 @@ let geometry = null;
 let controls = null;
 let projector = null;
 
+
 // simulation resolution
 const N = 60;
 // simulation size (in x and z directions)
@@ -50,7 +51,6 @@ const SIGMA = 0.01;
 
 // initialization of three.js, a basic camera, some lights, and the overall scene
 const init = function() {
-
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
     camera.position.z = 200;
     camera.position.y = 150;
@@ -58,7 +58,7 @@ const init = function() {
 
     scene = new THREE.Scene();
 
-    /** GYROSCOPE CONTROLS **/
+    /** gyroscope actionlistener **/
     function setOrientationControls(e) {
         if (!e.alpha) {
           return;
@@ -71,7 +71,6 @@ const init = function() {
         window.removeEventListener('deviceorientation', setOrientationControls.bind(this));
     }
     window.addEventListener('deviceorientation', setOrientationControls, true);
-
 
     const light = new THREE.DirectionalLight(0xffffff);
     light.position.set(1, 1, 1);
@@ -121,18 +120,15 @@ const init = function() {
 
     return document.body.appendChild(renderer.domElement);
 };
+
 let now = Date.now();
+
 // main loop function
 var animate = function() {
     let dt = Date.now() - now;
-    // let dt = clock.getDelta(); breaks the time evolution.
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
     controls.update();
-
-    clock.getDelta();
-    console.log(clock.elapsedTime);
-
     dt *= SIM_SPEED;
 
     if (dt > MAX_ITERATRED_DT) {
@@ -148,8 +144,7 @@ var animate = function() {
         }
         dt -= MAX_DT;
     }
-    now = Date.now();
-    return;
+    return now = Date.now();
 };
 
 // convert from (x, z) indices to an index in the vertex array
