@@ -12,7 +12,7 @@ if (!Detector.webgl) Detector.addGetWebGLMessage();
 // simulation resolution
 const N = 60;
 // simulation grid size (in xz plane)
-const W = 100;
+const W = 300;
 const H = W;
 // depth of the water -- make it deep!
 const D = 100;
@@ -21,7 +21,7 @@ const C = 0.04;
 const C2 = C * C;
 // damping coefficient
 const DAMPING = 0.001;
-const SIM_SPEED = 100;
+const SIM_SPEED = 1;
 
 // precompute some deltas for our finite differences
 // because our step size in space is completely constant.
@@ -203,17 +203,17 @@ function onWindowResize() {
 }
 
 function animate() {
+    var dt = clock.getDelta();
     requestAnimationFrame(animate);
-    update();
-    render();
-}
+    renderer.render(scene, camera);
 
-function update() {
-  onWindowResize();
-  if (controls) {
-      controls.update();
-  }
-  clock.getDelta();
+    onWindowResize();
+    // from the update function
+    if (controls){
+        controls.update();
+    }
+
+    render();
 }
 
 // this should be replaced by integrate() from main.js.
@@ -231,7 +231,7 @@ function euintegrate( dt ){
 
     for (var z=1; z <= N; z++) {
         for (var x=1; x <= N; x++) {
-            i = idx(x, z)
+            i = idx(x, z);
             // find neighbouring points in grid
             iPrevX = idx(x - 1, z);
             iNextX = idx(x + 1, z);
@@ -255,8 +255,8 @@ function euintegrate( dt ){
     };
 
     // loop again to update the y values .. but only after all computations are completed.
-    for (z=1; z <= N; z++) {
-        for (x=1; x <= N; x++) {
+    for (var z=1; z <= N; z++) {
+        for (var x=1; x <= N; x++) {
             i = idx(x, z);
             v[i].y = v[i].newY;
         };
@@ -291,9 +291,6 @@ function render() {
         };
         dt = dt - MAX_DT;
     };
-
-    // And now we render it all.
-    effect.render(scene, camera);
 }
 
 function fullscreen() {

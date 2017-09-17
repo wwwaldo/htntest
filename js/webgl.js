@@ -129,28 +129,42 @@ function animate() {
     render();
 }
 
+// my understanding: update the 3d view
+// and also resize the frame if the window was resized earlier
 function update() {
   onWindowResize();
   if (controls) {
       controls.update();
   }
-  clock.getDelta();
+  // clock.getDelta(); -- need this for dt later.
 }
 
-
+// perform the mathematical manipulations we would like
+// and call the double-camera render.
 function render() {
+    // move the spotlight.
     light1.position.x = Math.sin(clock.elapsedTime * 1) * light_plane_width_half * light_radius;
     light1.position.y = Math.cos(clock.elapsedTime * 1) * light_plane_height_half * light_radius;
     light1.position.z = light_dist;
 
-    var targetX = light1.position.x * .07 + Math.PI;
-    var targetY = light1.position.y * -.07 ;
+    // TODO: here is where to integrate.
+    var dt = clock.getDelta();
+    dt = dt * SIM_SPEED; // speed up the simulation by SIM_SPEED
 
-    if (mesh) {
-        mesh.rotation.y += 0.05 * (targetX - mesh.rotation.y);
-        mesh.rotation.x += 0.05 * (targetY - mesh.rotation.x);
-    }
+    if (dt > MAX_ITERATED_DT){
+        dt = MAX_ITERATED_DT;
+    };
 
+    while (dt > 0){
+        if (dt > MAX_DT){
+            integrate(MAX_DT); // just this time length
+        } else{
+            integrate(dt);
+        };
+        dt = dt - MAX_DT;
+    };
+
+    // And now we render it all.
     effect.render(scene, camera);
 }
 
